@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบใส่ลายน้ำสำเนาถูกต้องบนไฟล์ PDF</title>
+    <title>ระบบใส่ลายน้ำสำเนาถูกต้องบน PDF</title>
     <link rel="icon" type="image/png" href="https://nonthaphathr.github.io/uploadimg/iconapppdf.png">
     <link rel="apple-touch-icon" href="https://nonthaphathr.github.io/uploadimg/iconapppdf.png">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
@@ -226,6 +226,7 @@
             margin-bottom: 0;
             transition: transform 0.2s ease;
             cursor: pointer;
+            position: relative;
         }
 
         .pdf-viewer.thumbnail-mode .page-container:hover {
@@ -497,6 +498,41 @@
             font-size: 12px;
             opacity: 0.7;
         }
+
+        /* Drag & Drop */
+        .pdf-viewer.drag-over {
+            border: 3px dashed #ff4444;
+            background: rgba(255, 68, 68, 0.1);
+        }
+
+        .pdf-viewer.drag-over .empty-state {
+            transform: scale(1.05);
+        }
+
+        .empty-state {
+            transition: transform 0.2s ease;
+        }
+
+        .pdf-viewer.thumbnail-mode .page-container:hover::after {
+            content: 'ดับเบิลคลิกเพื่อไปหน้านี้';
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            color: #ffcccc;
+            white-space: nowrap;
+            opacity: 0.8;
+        }
+
+        /* Thumbnail clickable */
+        .pdf-viewer.thumbnail-mode .page-container {
+            cursor: pointer;
+        }
+
+        .pdf-viewer.thumbnail-mode .page-container:active {
+            transform: scale(0.95);
+        }
     </style>
 </head>
 <body>
@@ -513,7 +549,7 @@
                 <input type="file" id="pdfUpload" accept="application/pdf">
                 <button class="btn" id="addWatermarkBtn" disabled>➕ เพิ่มลายน้ำ</button>
                 <button class="btn" id="exportBtn" disabled>💾 Export PDF</button>
-                <button class="btn" id="thumbnailToggle" disabled>🖼️ Thumbnail</button>
+                <button class="btn" id="thumbnailToggle" disabled>🖼️ ดูภาพรวมไฟล์</button>
             </div>
 
             <div class="control-row">
@@ -529,12 +565,12 @@
 
         <div class="workspace">
             <div class="pdf-viewer" id="pdfViewer">
-                <div class="empty-state">
+                <div class="empty-state" id="dropZone">
                     <svg fill="#ffcccc" viewBox="0 0 24 24">
                         <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
                     </svg>
                     <p style="font-size: 18px; font-weight: 700;">กรุณาเลือกไฟล์ PDF</p>
-                    <p style="margin-top: 10px; opacity: 0.7;">รองรับไฟล์ PDF ทุกขนาด</p>
+                    <p style="margin-top: 10px; opacity: 0.7;">คลิกปุ่ม "เลือกไฟล์ PDF" หรือ ลากไฟล์มาวางที่นี่</p>
                 </div>
             </div>
 
@@ -555,6 +591,11 @@
                 </div>
 
                 <h3>⚙️ ตั้งค่าลายน้ำ</h3>
+                
+                <div class="sidebar-section">
+                    <label>ข้อความหัวลายน้ำ:</label>
+                    <input type="text" id="headerText" value="สำเนาถูกต้อง">
+                </div>
                 
                 <div class="sidebar-section">
                     <label>สีข้อความ:</label>
@@ -622,11 +663,13 @@
         const fontStatus = document.getElementById('fontStatus');
         const fontList = document.getElementById('fontList');
         const pdfViewer = document.getElementById('pdfViewer');
+        const dropZone = document.getElementById('dropZone');
         const addWatermarkBtn = document.getElementById('addWatermarkBtn');
         const exportBtn = document.getElementById('exportBtn');
         const thumbnailToggle = document.getElementById('thumbnailToggle');
         const clearAllBtn = document.getElementById('clearAllBtn');
         const moveAllBtn = document.getElementById('moveAllBtn');
+        const headerTextInput = document.getElementById('headerText');
         const textColorInput = document.getElementById('textColor');
         const signerNameInput = document.getElementById('signerName');
         const positionInput = document.getElementById('position');
@@ -822,6 +865,7 @@
             const saved = localStorage.getItem('pdfWatermarkSettings');
             if (saved) {
                 const settings = JSON.parse(saved);
+                headerTextInput.value = settings.headerText || 'สำเนาถูกต้อง';
                 textColorInput.value = settings.textColor || '#003366';
                 signerNameInput.value = settings.signerName || 'นายนนทพัทธ์ หิรัญเรือง';
                 positionInput.value = settings.position || 'ครู';
@@ -840,6 +884,7 @@
 
         function saveSettings() {
             const settings = {
+                headerText: headerTextInput.value,
                 textColor: textColorInput.value,
                 signerName: signerNameInput.value,
                 position: positionInput.value,
@@ -852,7 +897,7 @@
             statusText.textContent = '✅ บันทึกอัตโนมัติ';
         }
 
-        [textColorInput, signerNameInput, positionInput, purposeInput, signDateInput, showDateCheckbox].forEach(input => {
+        [headerTextInput, textColorInput, signerNameInput, positionInput, purposeInput, signDateInput, showDateCheckbox].forEach(input => {
             input.addEventListener('input', saveSettings);
             input.addEventListener('change', saveSettings);
         });
@@ -862,26 +907,7 @@
         pdfUpload.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
-
-            pdfViewer.innerHTML = '<div class="loading"><div class="spinner"></div>กำลังโหลด PDF...</div>';
-            watermarks = {};
-
-            try {
-                pdfArrayBuffer = await file.arrayBuffer();
-                pdfDoc = await pdfjsLib.getDocument({ data: pdfArrayBuffer.slice(0) }).promise;
-                
-                await renderPDF();
-                addWatermarkBtn.disabled = false;
-                exportBtn.disabled = false;
-                thumbnailToggle.disabled = false;
-                clearAllBtn.disabled = false;
-                moveAllBtn.disabled = false;
-                
-                statusText.textContent = `✅ โหลด PDF สำเร็จ (${pdfDoc.numPages} หน้า)`;
-            } catch (error) {
-                console.error('Error loading PDF:', error);
-                alert('เกิดข้อผิดพลาดในการโหลด PDF: ' + error.message);
-            }
+            await loadPDFFile(file);
         });
 
         async function renderPDF() {
@@ -917,6 +943,14 @@
                 pageContainer.style.width = viewport.width + 'px';
                 pageContainer.style.height = viewport.height + 'px';
 
+                // Double click เพื่อไปยังหน้านั้นจาก thumbnail mode
+                pageContainer.addEventListener('dblclick', (e) => {
+                    if (thumbnailMode) {
+                        e.stopPropagation();
+                        goToPage(pageNum);
+                    }
+                });
+
                 const canvas = document.createElement('canvas');
                 const context = canvas.getContext('2d');
                 canvas.height = viewport.height;
@@ -941,7 +975,7 @@
         }
 
         function getWatermarkText() {
-            let text = 'สำเนาถูกต้อง';
+            let text = headerTextInput.value || 'สำเนาถูกต้อง';
             text += `\n\n(${signerNameInput.value})`;
             text += `\nตำแหน่ง ${positionInput.value}`;
             
@@ -1166,12 +1200,88 @@
             thumbnailMode = !thumbnailMode;
             if (thumbnailMode) {
                 pdfViewer.classList.add('thumbnail-mode');
-                thumbnailToggle.textContent = '📄 ปกติ';
+                thumbnailToggle.textContent = '📄 กลับหน้าปกติ';
             } else {
                 pdfViewer.classList.remove('thumbnail-mode');
-                thumbnailToggle.textContent = '🖼️ Thumbnail';
+                thumbnailToggle.textContent = '🖼️ ดูภาพรวมไฟล์';
             }
         });
+
+        // Drag & Drop Events
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            pdfViewer.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            });
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            pdfViewer.addEventListener(eventName, () => {
+                pdfViewer.classList.add('drag-over');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            pdfViewer.addEventListener(eventName, () => {
+                pdfViewer.classList.remove('drag-over');
+            });
+        });
+
+        pdfViewer.addEventListener('drop', async (e) => {
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.type === 'application/pdf') {
+                    await loadPDFFile(file);
+                } else {
+                    alert('กรุณาเลือกไฟล์ PDF เท่านั้น');
+                }
+            }
+        });
+
+        // ฟังก์ชันโหลด PDF (แยกออกมาเพื่อใช้ร่วมกัน)
+        async function loadPDFFile(file) {
+            pdfViewer.innerHTML = '<div class="loading"><div class="spinner"></div>กำลังโหลด PDF...</div>';
+            watermarks = {};
+
+            try {
+                pdfArrayBuffer = await file.arrayBuffer();
+                pdfDoc = await pdfjsLib.getDocument({ data: pdfArrayBuffer.slice(0) }).promise;
+                
+                await renderPDF();
+                addWatermarkBtn.disabled = false;
+                exportBtn.disabled = false;
+                thumbnailToggle.disabled = false;
+                clearAllBtn.disabled = false;
+                moveAllBtn.disabled = false;
+                
+                statusText.textContent = `✅ โหลด PDF สำเร็จ (${pdfDoc.numPages} หน้า)`;
+            } catch (error) {
+                console.error('Error loading PDF:', error);
+                alert('เกิดข้อผิดพลาดในการโหลด PDF: ' + error.message);
+            }
+        }
+
+        // ฟังก์ชันไปยังหน้าที่ต้องการ (จาก thumbnail)
+        function goToPage(pageNum) {
+            // ปิด thumbnail mode
+            thumbnailMode = false;
+            pdfViewer.classList.remove('thumbnail-mode');
+            thumbnailToggle.textContent = '🖼️ ดูภาพรวมไฟล์';
+            
+            // scroll ไปยังหน้าที่เลือก
+            setTimeout(() => {
+                const targetPage = document.querySelector(`[data-page-num="${pageNum}"]`);
+                if (targetPage) {
+                    targetPage.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    // เพิ่ม highlight ชั่วคราว
+                    targetPage.style.boxShadow = '0 0 20px 5px rgba(255, 68, 68, 0.8)';
+                    setTimeout(() => {
+                        targetPage.style.boxShadow = '0 5px 20px rgba(0, 0, 0, 0.5)';
+                    }, 1500);
+                }
+            }, 100);
+        }
 
         clearAllBtn.addEventListener('click', () => {
             if (confirm('ต้องการลบลายน้ำทั้งหมดหรือไม่?')) {
@@ -1370,4 +1480,3 @@
     </script>
 </body>
 </html>
-
