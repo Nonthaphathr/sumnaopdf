@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ระบบใส่ลายน้ำสำเนาถูกต้องบน PDF</title>
+    <link rel="icon" type="image/png" href="https://nonthaphathr.github.io/uploadimg/iconapppdf.png">
+    <link rel="apple-touch-icon" href="https://nonthaphathr.github.io/uploadimg/iconapppdf.png">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
@@ -500,7 +502,8 @@
 <body>
     <div class="container">
         <header>
-            <h1>🔖 ระบบใส่ลายน้ำสำเนาถูกต้องบน PDF</h1>
+            <img src="https://nonthaphathr.github.io/uploadimg/iconapppdf.png" alt="Logo" style="width: 80px; height: 80px; margin-bottom: 15px;">
+            <h1>ระบบใส่ลายน้ำสำเนาถูกต้องบน PDF</h1>
             <div class="developer">พัฒนาโดย นายนนทพัทธ์ หิรัญเรือง</div>
         </header>
 
@@ -780,7 +783,7 @@
                 fontStatus.innerHTML = `✅ ใช้งาน: <strong>${font?.name || 'ฟอนต์ที่เลือก'}</strong>`;
                 fontStatus.style.color = '#90EE90';
             } else {
-                fontStatus.innerHTML = `ℹ️ ใช้ฟอนต์เริ่มต้น (Noto Sans Thai)`;
+                fontStatus.innerHTML = `ℹ️ ใช้ฟอนต์เริ่มต้น (TH Sarabun Bold)`;
                 fontStatus.style.color = '#cc99ff';
             }
         }
@@ -1221,18 +1224,16 @@
                     // ใช้ฟอนต์ที่บันทึกไว้
                     customFont = await pdfDocLib.embedFont(activeFontBytes);
                 } else {
-                    // ใช้ Noto Sans Thai Bold
-                    const fontUrl = 'https://fonts.gstatic.com/s/notosansthai/v20/iJWQBXeUZi_OHPqn4wq6hQ2RYi1t_aPcGl8q.ttf';
+                    // ใช้ TH Sarabun Bold จาก GitHub repository
+                    const fontUrl = 'https://nonthaphathr.github.io/sumnaopdf/THSarabunBold.ttf';
                     try {
                         const fontResponse = await fetch(fontUrl);
                         if (!fontResponse.ok) throw new Error('Font not found');
                         const fontBytes = await fontResponse.arrayBuffer();
                         customFont = await pdfDocLib.embedFont(fontBytes);
-                    } catch {
-                        const fallbackUrl = 'https://fonts.gstatic.com/s/notosansthai/v20/iJWnBXeUZi_OHPqn4wq6hQ2RYi5t_aPc.ttf';
-                        const fontResponse = await fetch(fallbackUrl);
-                        const fontBytes = await fontResponse.arrayBuffer();
-                        customFont = await pdfDocLib.embedFont(fontBytes);
+                    } catch (err) {
+                        console.error('Font load error:', err);
+                        throw new Error('ไม่สามารถโหลดฟอนต์ได้ กรุณาอัปโหลดฟอนต์ด้วยตนเอง');
                     }
                 }
 
