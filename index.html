@@ -295,6 +295,25 @@
             box-shadow: 0 0 15px rgba(255, 0, 0, 0.7);
         }
 
+        .watermark.selected {
+            border-color: #00ff00;
+            border-style: solid;
+            background: rgba(0, 255, 0, 0.1);
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+        }
+
+        .watermark.selected::before {
+            content: '✓ เลือกอยู่';
+            position: absolute;
+            top: -25px;
+            left: 0;
+            font-size: 10px;
+            color: #00ff00;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
         .watermark-text {
             font-family: 'Sarabun', sans-serif;
             white-space: pre-line;
@@ -605,6 +624,13 @@
                 <div class="sidebar-section">
                     <label>ขนาดลายน้ำ: <span id="scaleValue">1.0</span>x</label>
                     <input type="range" id="watermarkScale" min="0.5" max="2.5" step="0.1" value="1.0" style="width: 100%; accent-color: #8b0000;">
+                    <div class="checkbox-row" style="margin-top: 8px;">
+                        <input type="checkbox" id="scaleAllPages" checked>
+                        <label for="scaleAllPages" style="font-size: 12px;">ปรับขนาดทุกหน้าพร้อมกัน</label>
+                    </div>
+                    <div id="pageScaleInfo" style="font-size: 11px; color: #888; margin-top: 5px; display: none;">
+                        💡 คลิกที่ลายน้ำเพื่อเลือก แล้วเลื่อน slider
+                    </div>
                 </div>
 
                 <div class="sidebar-section">
@@ -642,12 +668,12 @@
                 <span style="color: #ffcccc; font-size: 14px;">📊 สถิติการเข้าชมเว็บไซต์</span>
             </div>
             <div style="display: flex; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap;">
-                <!-- ใช้ visitor-badge.glitch.me (ฟรี และใช้งานได้จริง) -->
-                <div style="background: rgba(0,0,0,0.3); padding: 10px 20px; border-radius: 10px; border: 1px solid #8b0000;">
-                    <div style="color: #888; font-size: 11px; margin-bottom: 5px;">ผู้เข้าชมทั้งหมด</div>
-                    <img src="https://visitor-badge.glitch.me/badge?page_id=nonthaphathr.sumnaopdf&left_color=darkred&right_color=red&left_text=Views" 
-                         alt="Visitor Count"
-                         style="height: 25px;">
+                <!-- Counter.dev Badge -->
+                <div style="background: rgba(0,0,0,0.3); padding: 15px 25px; border-radius: 10px; border: 1px solid #8b0000;">
+                    <div style="color: #888; font-size: 11px; margin-bottom: 8px;">ผู้เข้าชมทั้งหมด</div>
+                    <a href="https://counter.dev" target="_blank" rel="noopener" style="text-decoration: none;">
+                        <span id="counterValue" style="color: #ff4444; font-size: 28px; font-weight: bold;">-</span>
+                    </a>
                 </div>
             </div>
             <div style="margin-top: 20px; color: #666; font-size: 11px;">
@@ -657,6 +683,32 @@
                 พัฒนาโดย <span style="color: #ff6666;">นายนนทพัทธ์ หิรัญเรือง</span>
             </div>
         </footer>
+
+        <!-- Counter.dev Script -->
+        <script>
+            // Counter.dev - ฟรีและเรียบง่าย
+            // หมายเหตุ: ต้องสมัครที่ https://counter.dev และใส่ username ของตัวเอง
+            (function() {
+                // ส่งข้อมูลไปยัง Counter.dev
+                var script = document.createElement('script');
+                script.async = true;
+                script.src = 'https://cdn.counter.dev/script.js';
+                script.setAttribute('data-id', 'Nonthaphathr'); // เปลี่ยนเป็น username ของคุณ
+                script.setAttribute('data-utcoffset', '7'); // UTC+7 สำหรับประเทศไทย
+                document.head.appendChild(script);
+                
+                // ดึงข้อมูลจำนวนผู้เข้าชม (ถ้ามี API)
+                // สำหรับตอนนี้ใช้ localStorage เป็น fallback
+                let localCount = localStorage.getItem('siteVisitorCount') || 0;
+                localCount = parseInt(localCount) + 1;
+                localStorage.setItem('siteVisitorCount', localCount);
+                
+                const counterEl = document.getElementById('counterValue');
+                if (counterEl) {
+                    counterEl.textContent = localCount.toLocaleString();
+                }
+            })();
+        </script>
     </div>
 
     <script>
@@ -700,6 +752,9 @@
         const textColorInput = document.getElementById('textColor');
         const watermarkScaleInput = document.getElementById('watermarkScale');
         const scaleValueDisplay = document.getElementById('scaleValue');
+        const scaleAllPagesCheckbox = document.getElementById('scaleAllPages');
+        const pageScaleInfo = document.getElementById('pageScaleInfo');
+        let selectedWatermark = null; // ลายน้ำที่เลือกอยู่
         const signerNameInput = document.getElementById('signerName');
         const positionInput = document.getElementById('position');
         const purposeInput = document.getElementById('purpose');
@@ -937,8 +992,29 @@
         // Scale slider event - อัปเดต realtime
         watermarkScaleInput.addEventListener('input', () => {
             scaleValueDisplay.textContent = watermarkScaleInput.value;
-            updateAllWatermarksScale();
+            
+            if (scaleAllPagesCheckbox.checked) {
+                // ปรับทุกหน้าพร้อมกัน
+                updateAllWatermarksScale();
+            } else {
+                // ปรับเฉพาะลายน้ำที่เลือก
+                updateSelectedWatermarkScale();
+            }
             saveSettings();
+        });
+
+        // เมื่อเปลี่ยนโหมดปรับขนาด
+        scaleAllPagesCheckbox.addEventListener('change', () => {
+            if (scaleAllPagesCheckbox.checked) {
+                pageScaleInfo.style.display = 'none';
+                // ยกเลิกการเลือกลายน้ำ
+                if (selectedWatermark) {
+                    selectedWatermark.classList.remove('selected');
+                    selectedWatermark = null;
+                }
+            } else {
+                pageScaleInfo.style.display = 'block';
+            }
         });
 
         // ฟังก์ชันอัปเดต scale ของลายน้ำทั้งหมด
@@ -952,6 +1028,40 @@
                     wm.style.transform = `scale(${newScale})`;
                 }
             });
+        }
+
+        // ฟังก์ชันอัปเดต scale ของลายน้ำที่เลือก
+        function updateSelectedWatermarkScale() {
+            if (!selectedWatermark) return;
+            
+            const newScale = parseFloat(watermarkScaleInput.value);
+            const pageNum = parseInt(selectedWatermark.dataset.pageNum);
+            const index = parseInt(selectedWatermark.dataset.index);
+            
+            if (watermarks[pageNum] && watermarks[pageNum][index]) {
+                watermarks[pageNum][index].scale = newScale;
+                selectedWatermark.style.transform = `scale(${newScale})`;
+            }
+        }
+
+        // ฟังก์ชันเลือกลายน้ำ
+        function selectWatermarkForScaling(wmDiv) {
+            // ยกเลิกการเลือกก่อนหน้า
+            if (selectedWatermark) {
+                selectedWatermark.classList.remove('selected');
+            }
+            
+            // เลือกลายน้ำใหม่
+            selectedWatermark = wmDiv;
+            wmDiv.classList.add('selected');
+            
+            // อัปเดต slider ให้ตรงกับ scale ของลายน้ำที่เลือก
+            const pageNum = parseInt(wmDiv.dataset.pageNum);
+            const index = parseInt(wmDiv.dataset.index);
+            if (watermarks[pageNum] && watermarks[pageNum][index]) {
+                watermarkScaleInput.value = watermarks[pageNum][index].scale;
+                scaleValueDisplay.textContent = watermarks[pageNum][index].scale;
+            }
         }
 
         // ================== PDF Functions ==================
@@ -1150,6 +1260,11 @@
                     dragOffset.x = e.clientX - rect.left;
                     dragOffset.y = e.clientY - rect.top;
                     wmDiv.classList.add('active');
+                    
+                    // ถ้าอยู่ในโหมดปรับแยกหน้า ให้เลือกลายน้ำนี้
+                    if (!scaleAllPagesCheckbox.checked) {
+                        selectWatermarkForScaling(wmDiv);
+                    }
                 }
                 e.preventDefault();
             });
