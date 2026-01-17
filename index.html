@@ -538,7 +538,7 @@
 <body>
     <div class="container">
         <header>
-            <img src="https://nonthaphathr.github.io/uploadimg/iconapppdf.png" alt="Logo" style="width: 80px; height: 80px; margin-bottom: 15px;">
+            <img src="https://nonthaphathr.github.io/uploadimg/iconapppdf.png" alt="Logo" style="width: 80px; height: 80px; margin-bottom: 15px; border-radius: 50%; border: 3px solid #ff4444; box-shadow: 0 0 20px rgba(255, 68, 68, 0.5);">
             <h1>ระบบใส่ลายน้ำสำเนาถูกต้องบน PDF</h1>
             <div class="developer">พัฒนาโดย นายนนทพัทธ์ หิรัญเรือง</div>
         </header>
@@ -603,6 +603,11 @@
                 </div>
 
                 <div class="sidebar-section">
+                    <label>ขนาดลายน้ำ: <span id="scaleValue">1.0</span>x</label>
+                    <input type="range" id="watermarkScale" min="0.5" max="2.5" step="0.1" value="1.0" style="width: 100%; accent-color: #8b0000;">
+                </div>
+
+                <div class="sidebar-section">
                     <label>ชื่อผู้ลงนาม:</label>
                     <input type="text" id="signerName" value="นายนนทพัทธ์ หิรัญเรือง">
                 </div>
@@ -630,6 +635,28 @@
                 </div>
             </div>
         </div>
+
+        <!-- Footer พร้อมระบบนับผู้เข้าชม -->
+        <footer style="text-align: center; padding: 30px 20px; margin-top: 30px; background: rgba(20, 0, 0, 0.8); border-radius: 15px; border: 2px solid #8b0000;">
+            <div style="margin-bottom: 15px;">
+                <span style="color: #ffcccc; font-size: 14px;">📊 สถิติการเข้าชมเว็บไซต์</span>
+            </div>
+            <div style="display: flex; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap;">
+                <!-- ใช้ visitor-badge.glitch.me (ฟรี และใช้งานได้จริง) -->
+                <div style="background: rgba(0,0,0,0.3); padding: 10px 20px; border-radius: 10px; border: 1px solid #8b0000;">
+                    <div style="color: #888; font-size: 11px; margin-bottom: 5px;">ผู้เข้าชมทั้งหมด</div>
+                    <img src="https://visitor-badge.glitch.me/badge?page_id=nonthaphathr.sumnaopdf&left_color=darkred&right_color=red&left_text=Views" 
+                         alt="Visitor Count"
+                         style="height: 25px;">
+                </div>
+            </div>
+            <div style="margin-top: 20px; color: #666; font-size: 11px;">
+                © 2025 ระบบใส่ลายน้ำสำเนาถูกต้องบน PDF
+            </div>
+            <div style="margin-top: 5px; color: #888; font-size: 12px;">
+                พัฒนาโดย <span style="color: #ff6666;">นายนนทพัทธ์ หิรัญเรือง</span>
+            </div>
+        </footer>
     </div>
 
     <script>
@@ -671,6 +698,8 @@
         const moveAllBtn = document.getElementById('moveAllBtn');
         const headerTextInput = document.getElementById('headerText');
         const textColorInput = document.getElementById('textColor');
+        const watermarkScaleInput = document.getElementById('watermarkScale');
+        const scaleValueDisplay = document.getElementById('scaleValue');
         const signerNameInput = document.getElementById('signerName');
         const positionInput = document.getElementById('position');
         const purposeInput = document.getElementById('purpose');
@@ -867,6 +896,8 @@
                 const settings = JSON.parse(saved);
                 headerTextInput.value = settings.headerText || 'สำเนาถูกต้อง';
                 textColorInput.value = settings.textColor || '#003366';
+                watermarkScaleInput.value = settings.watermarkScale || 1.0;
+                scaleValueDisplay.textContent = watermarkScaleInput.value;
                 signerNameInput.value = settings.signerName || 'นายนนทพัทธ์ หิรัญเรือง';
                 positionInput.value = settings.position || 'ครู';
                 purposeInput.value = settings.purpose || '';
@@ -886,6 +917,7 @@
             const settings = {
                 headerText: headerTextInput.value,
                 textColor: textColorInput.value,
+                watermarkScale: watermarkScaleInput.value,
                 signerName: signerNameInput.value,
                 position: positionInput.value,
                 purpose: purposeInput.value,
@@ -901,6 +933,26 @@
             input.addEventListener('input', saveSettings);
             input.addEventListener('change', saveSettings);
         });
+
+        // Scale slider event - อัปเดต realtime
+        watermarkScaleInput.addEventListener('input', () => {
+            scaleValueDisplay.textContent = watermarkScaleInput.value;
+            updateAllWatermarksScale();
+            saveSettings();
+        });
+
+        // ฟังก์ชันอัปเดต scale ของลายน้ำทั้งหมด
+        function updateAllWatermarksScale() {
+            const newScale = parseFloat(watermarkScaleInput.value);
+            document.querySelectorAll('.watermark').forEach(wm => {
+                const pageNum = parseInt(wm.dataset.pageNum);
+                const index = parseInt(wm.dataset.index);
+                if (watermarks[pageNum] && watermarks[pageNum][index]) {
+                    watermarks[pageNum][index].scale = newScale;
+                    wm.style.transform = `scale(${newScale})`;
+                }
+            });
+        }
 
         // ================== PDF Functions ==================
 
@@ -1002,6 +1054,7 @@
 
             const defaultX = 50;
             const defaultY = 50;
+            const currentScale = parseFloat(watermarkScaleInput.value);
 
             if (currentMode === 'all') {
                 for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
@@ -1010,7 +1063,7 @@
                         color: textColorInput.value,
                         x: defaultX,
                         y: defaultY,
-                        scale: 1
+                        scale: currentScale
                     };
 
                     if (!watermarks[pageNum]) {
@@ -1026,7 +1079,7 @@
                     color: textColorInput.value,
                     x: defaultX,
                     y: defaultY,
-                    scale: 1
+                    scale: currentScale
                 };
 
                 if (!watermarks[pageNum]) {
